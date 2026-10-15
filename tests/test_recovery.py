@@ -237,14 +237,14 @@ class PackagingTests(unittest.TestCase):
             load.assert_not_called()
             response=dispatcher.dispatch('sshrecovery',{'pluginUser':'u123','action':'capabilities'},'u123')
             self.assertEqual(response['module'],'sshrecovery')
-            self.assertEqual(response['helperVersion'],'1.0.3')
+            self.assertEqual(response['helperVersion'],'1.0.4')
     def test_boot_code_is_original(self):
         if not (ROOT.parent/'install-ssh-autostart-fix.sh').exists():self.skipTest('Original worker project unavailable')
         original=(ROOT.parent/'install-ssh-autostart-fix.sh').read_text()
         worker=original.split("<<'SSH_RESTORE_WORKER'\n")[1].split('\nSSH_RESTORE_WORKER')[0]
         self.assertEqual((ROOT/'payload/system/restore-ssh.sh').read_text().strip(),worker.strip())
     def test_common_copies_match(self):
-        for name in ('minas-helper','component_admin.py','privileged_runtime.py','docker-manager-helper'):
+        for name in ('minas-helper','component_admin.py','privileged_runtime.py','docker-manager-helper','user_state_io.py'):
             expected=(ROOT/'payload/common'/name).read_bytes().replace(b'\r\n',b'\n')
             for plugin in ('docker-manager-plugin','task-center-plugin'):
                 if not (ROOT.parent/plugin).exists():self.skipTest('Sibling installer project unavailable')

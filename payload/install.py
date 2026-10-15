@@ -14,7 +14,7 @@ import sys
 import tempfile
 import time
 
-PLUGIN, VERSION = 'sshrecovery', '1.1.1'
+PLUGIN, VERSION = 'sshrecovery', '1.1.2'
 SYSTEM = Path('/data/.minas-privileged')
 
 def system_install(user, payload):
@@ -150,8 +150,11 @@ def install(p, payload):
         subprocess.run([sys.executable, '-B', str(payload / 'make_icon.py'), str(icon)], check=True)
         icon.chmod(0o644)
         data = read_json(registry)
-        data[PLUGIN] = dict(resource={'mpk':'','icon':'','preview':None}, status='running', install=True, upgrade=False,
-                            enable=True, changetime=now, icon='/icon/sshrecovery.icon', progress='100', frontend=read_json(src / 'ui/config'),
+        previous=data.get(PLUGIN,{})
+        enabled=previous.get('enable',True)
+        if not isinstance(enabled,bool):enabled=True
+        data[PLUGIN] = dict(resource={'mpk':'','icon':'','preview':None}, status=previous.get('status','running'), install=True, upgrade=False,
+                            enable=enabled, changetime=now, icon='/icon/sshrecovery.icon', progress='100', frontend=read_json(src / 'ui/config'),
                             info={k:v for k,v in info.items() if k!='abstract'}, online=True)
         st=registry.stat(); atomic(registry, encoded(data), st.st_mode & 0o777, (st.st_uid, st.st_gid))
         env = dict(os.environ, PLUG_USER=p['user'], PLUG_NAME=PLUGIN, PLUG_SRC_DIR=str(src), PLUG_HOME_DIR=str(home), PLUG_TMP_DIR=str(tmp), PLUG_STATUS='unverified')
@@ -159,7 +162,7 @@ def install(p, payload):
         require(check.returncode == 0, '系统源码校验未通过，正在回退安装')
         report=system_install(p['user'],payload)
         print('公共权限组件：'+report['helperVersion']+'；升级回退副本：'+report['backup'])
-        print('SSH 恢复 1.1.1 已安装：' + p['user'] + '；未改动开机修复服务，未预置登录公钥。')
+        print('SSH 恢复 1.1.2 已安装：' + p['user'] + '；未改动开机修复服务，未预置登录公钥。')
     except BaseException:
         st=registry.stat(); atomic(registry,old_registry,st.st_mode & 0o777,(st.st_uid,st.st_gid))
         if not web_existed and web.is_symlink(): web.unlink()
