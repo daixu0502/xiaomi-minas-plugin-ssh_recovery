@@ -4,7 +4,7 @@ set -Eeuo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PLUGIN_NAME='sshrecovery'
 PLUGIN_LABEL='SSH 恢复'
-PLUGIN_VERSION='1.1.7'
+PLUGIN_VERSION='1.1.8'
 UNINSTALL_NOTE='仅删除所选用户的插件及恢复材料；不关闭 SSH，不移除已安装的登录公钥。'
 
 # Shared frontend; keep this section consistent across the four manage.sh files.

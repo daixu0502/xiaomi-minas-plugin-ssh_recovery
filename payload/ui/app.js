@@ -35,7 +35,7 @@ function render(s){
  byId('authorizationNote').textContent=a?'实际登录目录：'+a.rootHome+'。服务器身份密钥与登录授权分别检查；“恢复公钥已保存”不代表已安装到登录目录。':'正在检查实际登录目录和授权文件。';
  byId('fingerprint').textContent=s.fingerprint||'尚未保存恢复公钥';byId('fingerprint').classList.toggle('empty',!s.fingerprint);
  byId('bootState').textContent=s.bootFinished===false?'开机检查中':s.bootFinished===true?'开机检查已结束':'无开机检查单元';
- const b=s.bootService;byId('bootService').textContent=b.worker&&b.cron&&b.dropin?'已安装':b.worker||b.cron||b.dropin?'配置不完整':'未安装';
+ const b=s.bootService;byId('bootService').textContent=b.current===true?'已安装（当前版本）':b.conflicts?.length?'已有配置需更新':b.worker&&b.cron&&b.dropin?'已安装':b.worker||b.cron||b.dropin?'配置不完整':'未安装';
  byId('generateKey').checked=s.settings?.generateWithoutPublicKey===true;
  byId('recoveryNote').textContent=byId('generateKey').checked?'未保存公钥时，点击恢复才生成登录密钥。请及时下载并妥善保存私钥。':'未保存公钥时，只开启 SSH，不改动密钥文件。已有公钥时，按保存的恢复材料恢复。';
  byId('downloadHint').hidden=!s.generated?.ready;
@@ -74,7 +74,14 @@ byId('downloadKeys').onclick=async()=>{
  const link=byId('downloadFallback');link.href=downloadURL;link.download=result.downloadName||'ssh-login-keys.zip';link.hidden=false;
  byId('downloadHint').textContent='密钥包已领取。若客户端未自动保存，请点击“点此保存密钥包”；关闭或刷新页面会失去此临时下载。';byId('downloadHint').hidden=false;link.click();
 };
-byId('installBoot').onclick=async()=>{const r=await confirmAction('安装 / 更新开机修复','安装等待开机检查和有限复查任务，备份现有登录公钥供文件缺失时恢复，并修复新固件 mi-shell。不会生成登录密钥或重启 NAS。',true);if(r.ok)perform('install_boot',{overwrite:r.overwrite});};
+byId('installBoot').onclick=async()=>{
+ const latest=await perform('status');if(!latest)return;
+ const conflicts=latest.bootService?.conflicts||[];
+ let text='安装等待开机检查和有限复查任务，备份现有登录公钥供文件缺失时恢复，并修复新固件 mi-shell。不会生成登录密钥或重启 NAS。';
+ if(conflicts.length)text+=' 检测到内容不同的文件：'+conflicts.join('、')+'。确认替换后更新。';
+ else if(latest.bootService?.current)text='当前开机修复与本插件一致。继续可同步登录授权快照并重新检查开机配置。不会生成登录密钥或重启 NAS。';
+ const r=await confirmAction('安装 / 更新开机修复',text,conflicts.length>0);if(r.ok)perform('install_boot',{overwrite:r.overwrite});
+};
 byId('downloadEmergency').onclick=async()=>{
  const result=await perform('download_emergency');if(!result?.emergencyArchive)return;
  if(downloadURL)URL.revokeObjectURL(downloadURL);

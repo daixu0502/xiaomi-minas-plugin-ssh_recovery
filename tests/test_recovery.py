@@ -1,4 +1,5 @@
 import base64
+import contextlib
 import hashlib
 import importlib.machinery
 import importlib.util
@@ -233,6 +234,43 @@ class RecoveryTests(unittest.TestCase):
         with patch.object(m,'BASE',assets),patch.object(m,'WORKER',existing),patch.object(m,'CRON',self.path/'cron'),patch.object(m,'DROPIN',self.path/'dropin'),patch.object(m,'unit_state',return_value={'LoadState':'loaded'}):
             with self.assertRaises(m.RecoveryError):self.r.install_boot()
         self.assertEqual(existing.read_bytes(),b'user-custom-code')
+    @contextlib.contextmanager
+    def boot_fixture(self):
+        assets=self.path/'boot-assets';assets.mkdir()
+        (assets/'ssh-recovery-boot.sh').write_bytes((ROOT/'payload/system/restore-ssh.sh').read_bytes())
+        with contextlib.ExitStack() as stack:
+            for name,value in [('BASE',assets),('WORKER',self.path/'boot/restore-ssh.sh'),('CRON',self.path/'cron/keep-ssh'),('DROPIN',self.path/'dropin/90-keep-ssh.conf')]:
+                stack.enter_context(patch.object(m,name,value))
+            stack.enter_context(patch.object(m,'unit_state',return_value={'LoadState':'loaded'}))
+            stack.enter_context(patch.object(m,'command',return_value=''))
+            expected=m.boot_data()
+            for path,data in expected.items():path.parent.mkdir(parents=True,exist_ok=True);path.write_bytes(data)
+            yield expected
+    def test_shell_upload_extra_blank_line_is_current_and_needs_no_override(self):
+        with self.boot_fixture() as expected:
+            m.WORKER.write_bytes(expected[m.WORKER]+b'\n')
+            self.assertTrue(m.boot_status()['current']);self.assertEqual(m.boot_status()['conflicts'],[])
+            self.r.install_boot()
+            self.assertEqual(m.WORKER.read_bytes(),expected[m.WORKER])
+    def test_optional_old_python_cli_is_not_a_boot_conflict_or_overwritten(self):
+        with self.boot_fixture():
+            m.ROOT_TOOL.parent.mkdir(parents=True,exist_ok=True);m.ROOT_TOOL.write_bytes(b'old emergency CLI fixture')
+            self.r.install_boot()
+            self.assertTrue(m.boot_status()['current'])
+            self.assertEqual(m.ROOT_TOOL.read_bytes(),b'old emergency CLI fixture')
+    def test_crlf_is_compatible_but_executable_change_is_a_conflict(self):
+        with self.boot_fixture() as expected:
+            m.CRON.write_bytes(expected[m.CRON].replace(b'\n',b'\r\n'))
+            self.assertTrue(m.boot_status()['current'])
+            m.WORKER.write_bytes(expected[m.WORKER]+b'echo modified-code\n')
+            self.assertEqual(m.boot_status()['conflicts'],['restore-ssh.sh'])
+            with self.assertRaisesRegex(m.RecoveryError,'restore-ssh.sh'):
+                self.r.install_boot()
+            self.assertTrue(m.WORKER.read_bytes().endswith(b'echo modified-code\n'))
+    def test_partial_install_is_not_reported_as_current(self):
+        with self.boot_fixture():
+            m.CRON.unlink()
+            state=m.boot_status();self.assertFalse(state['current']);self.assertEqual(state['conflicts'],[])
     def test_recover_restores_materials_without_old_boot_service(self):
         before=digest(self.src);self.r.save_public(key());self.r.host_backup.write_bytes(b'host-identity')
         with patch.object(m,'unit_state',return_value={'LoadState':'loaded','ActiveState':'active'}),patch.object(m,'boot_finished',return_value=True),patch.object(m,'command',return_value=''):
