@@ -1,6 +1,6 @@
 # 小米智能存储 SSH 恢复
 
-仓库：[xiaomi-minas-plugin-ssh_recovery](https://github.com/daixu0502/xiaomi-minas-plugin-ssh_recovery)。当前安装包在 `releases/`，同目录提供 SHA256SUMS。
+仓库：[xiaomi-minas-plugin-ssh_recovery](https://github.com/daixu0502/xiaomi-minas-plugin-ssh_recovery)。可通过仓库页面的 Code → Download ZIP 获取完整源码。
 
 版本 **1.1.1**。在手机 APP 或桌面客户端中手动开启 SSH，按需恢复保存的登录公钥和 NAS 主机密钥。即使设备没有之前的 SSH 开机修复服务，也可以使用。只授权给可信 NAS 管理账户：恢复 root 登录属于高权限操作。
 
@@ -97,3 +97,7 @@ cat /nas/data/ssh-autostart-fix/emergency-result.json
 ## 1.1.1 界面调整
 
 状态概览在桌面窗口保持五项等宽排列，手机上登录授权独占整行；目录说明合并在卡片底部。开机修复说明统一字体、字号和行距，等待时限、复查策略和运行方式对齐展示。
+
+## 获取源码
+
+在 GitHub 仓库页面选择 **Code → Download ZIP**，解压后保留项目目录结构，按本页说明运行 `manage.sh`。也可从 **Tags** 页面选择指定版本源码。
