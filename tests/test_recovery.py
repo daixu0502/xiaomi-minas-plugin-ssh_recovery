@@ -31,6 +31,25 @@ class PublicTests(unittest.TestCase):
             with self.assertRaises(m.RecoveryError):m.public_key(value)
     def test_type_mismatch(self):
         with self.assertRaises(m.RecoveryError):m.public_key(key().replace('ssh-ed25519 ','ssh-rsa ',1))
+    def test_wrapped_key_bom_comments_and_missing_padding(self):
+        algorithm,encoded=key().split()
+        wrapped='\ufeff# exported public key\r\n'+algorithm+' '+encoded[:20]+'\r\n'+encoded[20:48]+'\r\n'+encoded[48:]+' device\r\n'
+        self.assertEqual(m.public_key(wrapped),m.public_key(key()))
+        self.assertEqual(m.public_key(key().rstrip('=')),m.public_key(key()))
+    def test_rfc4716_public_key(self):
+        encoded=key().split()[1]
+        text='---- BEGIN SSH2 PUBLIC KEY ----\nComment: "exported \\\nkey"\n'+encoded[:32]+'\n'+encoded[32:]+'\n---- END SSH2 PUBLIC KEY ----\n'
+        self.assertEqual(m.public_key(text),m.public_key(key()))
+    def test_private_key_has_actionable_error(self):
+        for algorithm in ('OPENSSH','RSA','ENCRYPTED'):
+            with self.assertRaisesRegex(m.RecoveryError,'选择的是私钥'):
+                m.public_key('-----BEGIN '+algorithm+' PRIVATE KEY-----\nfixture\n-----END '+algorithm+' PRIVATE KEY-----')
+    def test_multiple_or_option_keys_are_still_rejected(self):
+        with self.assertRaisesRegex(m.RecoveryError,'多条公钥'):m.public_key(key()+'\n'+key())
+        for option in ('command="sh"','from="example.test"','restrict','no-pty'):
+            with self.assertRaises(m.RecoveryError):m.public_key(option+' '+key())
+        with self.assertRaises(m.RecoveryError):m.public_key(key()+'\nnot-base64!')
+        with self.assertRaises(m.RecoveryError):m.public_key('---- BEGIN SSH2 PUBLIC KEY ----\n'+key().split()[1])
 
 class RecoveryTests(unittest.TestCase):
     def test_recover_without_public_key_never_touches_key_files(self):

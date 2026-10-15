@@ -63,22 +63,64 @@ def atomic(path, data, mode=0o600):
         if os.path.exists(name):os.unlink(name)
 
 
-def public_key(text):
-    require(isinstance(text,str) and 0<len(text)<=16384, '公钥长度无效')
-    lines=[s.strip() for s in text.splitlines() if s.strip()]
-    require(len(lines)==1, '每次只能导入一条公钥，不接受 authorized_keys 选项')
+PUBLIC_ALGORITHMS=('ssh-ed25519','ssh-rsa','ecdsa-sha2-nistp256','ecdsa-sha2-nistp384','ecdsa-sha2-nistp521')
+
+
+def public_record(text):
+    """Read exactly one public key; never interpret authorized_keys options."""
+    require(isinstance(text,str) and 0<len(text)<=16384, '公钥长度无效，最多支持 16 KiB 文本')
+    text=text.strip().lstrip('\ufeff').strip()
+    require(not re.search(r'-----BEGIN [A-Z0-9 ]*PRIVATE KEY-----',text),
+            '选择的是私钥，不是公钥。请选择对应的 .pub 公钥文件；如需提取公钥，请手动切换为“从未加密私钥提取公钥”。')
+    lines=[s.strip() for s in text.splitlines() if s.strip() and not s.lstrip().startswith('#')]
+    require(lines, '文件中没有公钥，请选择公钥文本文件')
+    if lines[0]=='---- BEGIN SSH2 PUBLIC KEY ----':
+        require(lines[-1]=='---- END SSH2 PUBLIC KEY ----','SSH2 公钥缺少结束标记')
+        body=[];continued=False
+        for line in lines[1:-1]:
+            if continued:
+                continued=line.endswith('\\');continue
+            if not body and re.match(r'^[A-Za-z0-9-]+:',line):
+                continued=line.endswith('\\');continue
+            require(re.fullmatch(r'[A-Za-z0-9+/]+={0,2}',line),'SSH2 公钥内容无效，或文件中包含多条公钥')
+            body.append(line)
+        require(body and not continued,'SSH2 公钥内容为空或头部不完整')
+        encoded=''.join(body)
+        try:
+            raw=base64.b64decode(encoded+'='*((-len(encoded))%4),validate=True)
+            size=struct.unpack('>I',raw[:4])[0];algorithm=raw[4:4+size].decode('ascii')
+        except (ValueError,UnicodeError,struct.error) as exc:raise RecoveryError('SSH2 公钥编码损坏') from exc
+        require(algorithm in PUBLIC_ALGORITHMS,'不支持此 SSH2 公钥算法')
+        return algorithm,encoded
+    require(not text.startswith('-----BEGIN PUBLIC KEY-----'),
+            '此文件是 PEM 公钥，请导出为 OpenSSH 公钥（通常是 .pub 文件）后导入')
+    starts=[line for line in lines if line.split()[0] in PUBLIC_ALGORITHMS]
+    require(len(starts)<=1,'文件包含多条公钥，请选择只包含一条公钥的文件，不会自动选取其中一条')
     parts=lines[0].split()
-    require(len(parts)>=2 and parts[0] in ('ssh-ed25519','ssh-rsa','ecdsa-sha2-nistp256','ecdsa-sha2-nistp384','ecdsa-sha2-nistp521'), '不支持的公钥格式')
+    require(len(parts)>=2 and parts[0] in PUBLIC_ALGORITHMS,
+            '不是支持的 SSH 公钥格式；不接受 authorized_keys 的 command=、from= 等选项')
+    require(len(lines)==1 or len(parts)==2,'公钥注释后还有其他内容，请选择仅包含一条公钥的文件')
+    chunks=[parts[1]]
+    for index,line in enumerate(lines[1:]):
+        extra=line.split()
+        require(len(extra)==1 or index==len(lines)-2,'公钥换行格式无效')
+        chunks.append(extra[0])
+    require(all(re.fullmatch(r'[A-Za-z0-9+/]+={0,2}',chunk) for chunk in chunks),
+            '公钥编码无效，请选择公钥文本文件，不要选择私钥或 authorized_keys 配置')
+    return parts[0],''.join(chunks)
+
+
+def public_key(text):
+    algorithm,encoded=public_record(text)
     try:
-        raw=base64.b64decode(parts[1],validate=True);position=0
+        raw=base64.b64decode(encoded+'='*((-len(encoded))%4),validate=True);position=0
         def field():
             nonlocal position
             size=struct.unpack('>I',raw[position:position+4])[0];position+=4
             value=raw[position:position+size];position+=size
             if len(value)!=size:raise ValueError()
             return value
-        algorithm=field().decode('ascii')
-        if algorithm!=parts[0]:raise ValueError()
+        if field().decode('ascii')!=algorithm:raise ValueError()
         if algorithm=='ssh-ed25519':
             if len(field())!=32:raise ValueError()
         elif algorithm=='ssh-rsa':
@@ -90,7 +132,7 @@ def public_key(text):
         if position!=len(raw):raise ValueError()
     except (ValueError,UnicodeError,struct.error,KeyError) as exc:
         raise RecoveryError('公钥内容损坏或密钥长度不安全') from exc
-    canonical=parts[0]+' '+base64.b64encode(raw).decode()+' ssh-recovery'
+    canonical=algorithm+' '+base64.b64encode(raw).decode()+' ssh-recovery'
     fingerprint='SHA256:'+base64.b64encode(hashlib.sha256(raw).digest()).decode().rstrip('=')
     return canonical,fingerprint
 
@@ -214,9 +256,9 @@ class Recovery:
     def emergency_bundle(self):
         memory=io.BytesIO();files={'recover-ssh.py':Path(__file__).read_bytes(),
                                  'restore-ssh.sh':(BASE/'ssh-recovery-boot.sh').read_bytes(),
-                                 'manifest.json':json.dumps({'version':'1.1.4','user':self.user}).encode()}
+                                 'manifest.json':json.dumps({'version':'1.1.5','user':self.user}).encode()}
         if self.key.exists():files['recovery.pub']=(public_key(self.key.read_text())[0]+'\n').encode()
-        files['README.txt']=('SSH 应急包 1.1.4\n仅包含恢复程序、可选登录公钥，不包含私钥或 NAS 主机密钥。\n'
+        files['README.txt']=('SSH 应急包 1.1.5\n仅包含恢复程序、可选登录公钥，不包含私钥或 NAS 主机密钥。\n'
             '请提前下载到电脑并保留 Portainer 管理入口。\n'
             'SSH 与插件都无法使用时，将本包解压到 NAS 用户共享文件夹 data/ssh-emergency。\n'
             '在容器里将 NAS 的 / 绑定到 /nas，使用 root Console 执行：\n'
@@ -349,7 +391,7 @@ class Recovery:
         if self.host_key.is_file():
             try:host_valid=bool(command(['/usr/sbin/dropbearkey','-y','-f',str(self.host_key)],timeout=5))
             except (RecoveryError,OSError,subprocess.TimeoutExpired):pass
-        return dict(version='1.1.4',loginAuthorization=self.login_status(),hostKeyValid=host_valid,sshActive=socket.get('ActiveState')=='active',socketSupported=socket.get('LoadState')!='not-found',port=22,
+        return dict(version='1.1.5',loginAuthorization=self.login_status(),hostKeyValid=host_valid,sshActive=socket.get('ActiveState')=='active',socketSupported=socket.get('LoadState')!='not-found',port=22,
                     bootFinished=boot,keySaved=bool(fingerprint),fingerprint=fingerprint,hostKey=self.host_key.is_file(),hostBackup=self.host_backup.is_file(),
                     bootService=dict(worker=WORKER.is_file(),cron=CRON.is_file(),dropin=DROPIN.is_file()),
                     events=[e for e in reversed(events) if e.get('user')==self.user][:20],settings=self.settings(),generated=self.generated_info())

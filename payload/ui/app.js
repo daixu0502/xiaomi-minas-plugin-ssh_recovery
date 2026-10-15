@@ -2,7 +2,7 @@
 'use strict';
 const doc=window.XiaomiPluginClient?.document||document;
 const byId=id=>doc.getElementById(id);
-let state=null,working=false,downloadURL='';
+let state=null,working=false,importing=false,downloadURL='',toastTimer=null;
 async function api(action,data={}){
  const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),60000);
  try{
@@ -19,6 +19,13 @@ function setBusy(on){
  for(const id of ['refresh','recover','installBoot','saveKey','forgetKey','selectFile','generateKey','downloadKeys','downloadEmergency'])byId(id).disabled=on||!state;
  if(!on&&state){byId('recover').disabled=!state.socketSupported||state.bootFinished===false;byId('forgetKey').disabled=!state.keySaved;byId('downloadKeys').disabled=!state.generated?.ready;}
  byId('refresh').classList.toggle('is-loading',on);
+ byId('keyType').disabled=on;byId('keyFile').disabled=on;byId('keyText').disabled=on||byId('keyType').value==='import_private';
+}
+function notify(message,error=false){clearTimeout(toastTimer);const toast=byId('toast');toast.textContent=message;toast.classList.toggle('error',error);toast.hidden=false;toastTimer=setTimeout(()=>toast.hidden=true,error?12000:6000);}
+function clearKeyError(){byId('keyError').hidden=true;byId('keyText').removeAttribute('aria-invalid');byId('keyFile').removeAttribute('aria-invalid');if(byId('toast').classList.contains('error')){clearTimeout(toastTimer);byId('toast').hidden=true;}}
+function showError(message,target='error'){
+ const box=byId(target);box.textContent=message;box.hidden=false;notify(message,true);
+ if(target==='keyError'){byId(byId('keyFile').files.length?'keyFile':'keyText').setAttribute('aria-invalid','true');box.scrollIntoView({block:'nearest',inline:'nearest',behavior:'smooth'});try{box.focus({preventScroll:true})}catch{box.focus()}}
 }
 function render(s){
  state=s;byId('sshState').textContent=s.sshActive?'已开启':'未开启';byId('port').textContent=s.port;
@@ -38,10 +45,10 @@ function render(s){
  if(!s.events.length){const p=doc.createElement('p');p.className='note';p.textContent='暂无操作记录';box.append(p);}
  for(const e of s.events){const row=doc.createElement('div');row.className='event';const t=doc.createElement('time');t.textContent=new Date(e.time*1000).toLocaleString();const text=doc.createElement('div');text.textContent=e.message;row.append(t,text);box.append(row);}
 }
-async function perform(action,data={}){
- if(working)return null;setBusy(true);byId('error').hidden=true;
- try{const result=await api(action,data);const visible={...result};delete visible.keyArchive;delete visible.emergencyArchive;render(visible);if(result.message){byId('toast').textContent=result.message;byId('toast').hidden=false;setTimeout(()=>byId('toast').hidden=true,6000);}return result;}
- catch(e){byId('error').textContent=e.name==='AbortError'?'操作超时，请刷新状态后再重试':e.message;byId('error').hidden=false;return null;}
+async function perform(action,data={},target='error'){
+ if(working)return null;setBusy(true);byId('error').hidden=true;if(target==='keyError')clearKeyError();
+ try{const result=await api(action,data);const visible={...result};delete visible.keyArchive;delete visible.emergencyArchive;render(visible);if(result.message)notify(result.message);return result;}
+ catch(e){showError(e.name==='AbortError'?'操作超时，请刷新状态后再重试':e.message,target);return null;}
  finally{setBusy(false);}
 }
 function confirmAction(title,text,overwrite=false){
@@ -76,16 +83,25 @@ byId('downloadEmergency').onclick=async()=>{
  const link=byId('downloadFallback');link.href=downloadURL;link.download='nas-ssh-emergency.zip';link.hidden=false;link.textContent='保存已生成的恢复包';link.click();
 };
 byId('selectFile').onclick=()=>byId('keyFile').click();
-byId('keyFile').onchange=()=>byId('fileName').textContent=byId('keyFile').files[0]?.name||'尚未选择文件';
+byId('keyFile').onchange=()=>{byId('fileName').textContent=byId('keyFile').files[0]?.name||'尚未选择文件';clearKeyError();};
+byId('keyText').oninput=clearKeyError;
 function resetFile(){byId('keyText').value='';byId('keyFile').value='';byId('fileName').textContent='尚未选择文件';}
-byId('keyType').onchange=()=>{const privateMode=byId('keyType').value==='import_private';resetFile();byId('keyText').disabled=privateMode;byId('privateNote').textContent=privateMode?'仅支持未加密的 OpenSSH Ed25519 私钥，只在内存中提取公钥，不写入磁盘。建议优先上传公钥；私钥上传应使用可信 HTTPS 连接。':'公钥保存到独立运行数据区，不参与源码校验；恢复时追加到登录授权文件，不覆盖其他公钥。';};
+byId('keyType').onchange=()=>{const privateMode=byId('keyType').value==='import_private';resetFile();clearKeyError();byId('keyText').disabled=privateMode;byId('privateNote').textContent=privateMode?'仅支持未加密的 OpenSSH Ed25519 私钥，只在内存中提取公钥，不写入磁盘。建议优先上传公钥；私钥上传应使用可信 HTTPS 连接。':'支持 OpenSSH .pub、换行公钥与 SSH2/RFC4716 公钥。保存到独立运行数据区，恢复时追加授权，不覆盖其他公钥。';};
+async function readKeyFile(file){
+ const raw=new Uint8Array(await file.arrayBuffer());let encoding='utf-8';
+ if((raw[0]===255&&raw[1]===254)||(raw[1]===0&&raw[3]===0))encoding='utf-16le';
+ else if((raw[0]===254&&raw[1]===255)||(raw[0]===0&&raw[2]===0))encoding='utf-16be';
+ try{return new TextDecoder(encoding,{fatal:true}).decode(raw).replace(/^\uFEFF/,'');}catch{throw Error('密钥文件不是有效的 UTF-8/UTF-16 文本，请选择文本格式的公钥文件。');}
+}
 byId('keyForm').onsubmit=async e=>{
- e.preventDefault();if(working)return;const type=byId('keyType').value,file=byId('keyFile').files[0];
- try{if(file&&file.size>65536)throw Error('密钥文件过大');let key=file?await file.text():byId('keyText').value;if(!key.trim())throw Error('请先选择文件或填写公钥');
- const r=await confirmAction('保存恢复公钥',type==='import_private'?'仅提取、校验并保存公钥，私钥不写入磁盘。此操作不会立即修改登录授权文件。':'保存此公钥用于后续恢复，不会立即修改登录授权文件。保存新公钥会清理未领取的旧生成密钥包。');if(r.ok)await perform(type,{key});key='';
- }catch(error){byId('error').textContent=error.message;byId('error').hidden=false;}finally{resetFile();}
+ e.preventDefault();if(working||importing)return;importing=true;const type=byId('keyType').value,file=byId('keyFile').files[0];
+ let key='',saved=false;
+ try{clearKeyError();byId('error').hidden=true;if(file&&file.size>65536)throw Error('密钥文件过大，最多支持 64 KiB');key=file?await readKeyFile(file):byId('keyText').value;if(!key.trim())throw Error('请先选择文件或填写公钥');
+ if(type==='import_public'&&/-----BEGIN [A-Z0-9 ]*PRIVATE KEY-----/.test(key))throw Error('选择的是私钥。请选择对应的 .pub 公钥文件，或手动切换为“从未加密私钥提取公钥”；不会自动上传私钥。');
+ const r=await confirmAction('保存恢复公钥',type==='import_private'?'仅提取、校验并保存公钥，私钥不写入磁盘。此操作不会立即修改登录授权文件。':'保存此公钥用于后续恢复，不会立即修改登录授权文件。保存新公钥会清理未领取的旧生成密钥包。');if(r.ok)saved=Boolean(await perform(type,{key},'keyError'));
+ }catch(error){showError(error.message,'keyError');}finally{key='';importing=false;if(saved||type==='import_private')resetFile();}
 };
 byId('forgetKey').onclick=async()=>{if((await confirmAction('移除保存的公钥','只删除插件内的公钥和未领取的生成密钥包，不撤销当前登录授权，不关闭 SSH。')).ok)perform('forget_key');};
-window.addEventListener('unmount',()=>{if(downloadURL)URL.revokeObjectURL(downloadURL);});
+window.addEventListener('unmount',()=>{clearTimeout(toastTimer);if(downloadURL)URL.revokeObjectURL(downloadURL);});
 perform('status');
 })();

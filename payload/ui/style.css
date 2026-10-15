@@ -53,12 +53,15 @@
 [data-minas-plugin="sshrecovery"] .event:last-child{border:0}
 [data-minas-plugin="sshrecovery"] .event time{display:block;color:var(--muted);font-size:12px;margin-bottom:5px}
 [data-minas-plugin="sshrecovery"] .notice{padding:12px 16px;border-radius:12px;margin-bottom:16px;background:var(--warning-soft);color:var(--warning);overflow-wrap:anywhere}
+[data-minas-plugin="sshrecovery"] .notice.error{background:var(--danger-soft,var(--warning-soft));color:var(--danger,var(--warning))}
+[data-minas-plugin="sshrecovery"] .form-feedback{margin:14px 0 0;scroll-margin-block:16px;line-height:1.6;outline:none}
 [data-minas-plugin="sshrecovery"] footer{color:var(--muted);font-size:12px;text-align:center;margin-top:22px}
 [data-minas-plugin="sshrecovery"] dialog{background:var(--surface);color:var(--text);padding:0;border:1px solid var(--line);border-radius:18px;width:min(560px,calc(100vw - 32px));max-height:85dvh;overflow:auto;margin:auto;box-shadow:var(--shadow)}
 [data-minas-plugin="sshrecovery"] dialog::backdrop{background:#17263c66}
 [data-minas-plugin="sshrecovery"] .check{display:flex;align-items:flex-start;gap:10px;font-size:13px;margin-top:15px}
 [data-minas-plugin="sshrecovery"] .check input{width:18px;height:18px;flex-shrink:0;margin:0;padding:0}
 [data-minas-plugin="sshrecovery"] .toast{position:fixed;bottom:28px;left:50%;transform:translateX(-50%);max-width:calc(100vw - 32px);padding:12px 18px;border-radius:12px;background:var(--text);color:var(--surface);z-index:100}
+[data-minas-plugin="sshrecovery"] .toast.error{top:max(16px,env(safe-area-inset-top));bottom:auto;background:#a42b3c;color:#fff;white-space:normal;overflow-wrap:anywhere;max-height:min(40dvh,240px);overflow:auto}
 [data-minas-plugin="sshrecovery"] *{scrollbar-width:thin;scrollbar-color:var(--line) transparent}
 @keyframes ssh-spin{to{transform:rotate(360deg)}}
 @media(max-width:720px){[data-minas-plugin="sshrecovery"] .grid{grid-template-columns:1fr}[data-minas-plugin="sshrecovery"] .ssh-status-grid{grid-template-columns:repeat(2,minmax(0,1fr));padding:0}[data-minas-plugin="sshrecovery"] .ssh-status-item{padding:14px 16px}[data-minas-plugin="sshrecovery"] .ssh-status-item:nth-child(2n+1){border-left:0}[data-minas-plugin="sshrecovery"] .ssh-status-item:nth-child(n+3){border-top:1px solid var(--line)}[data-minas-plugin="sshrecovery"] .ssh-status-item:last-child{grid-column:1/-1;flex-direction:row;align-items:center;justify-content:space-between}[data-minas-plugin="sshrecovery"] .ssh-status-note{padding:12px 16px}[data-minas-plugin="sshrecovery"] .panel-head,[data-minas-plugin="sshrecovery"] .panel-body,[data-minas-plugin="sshrecovery"] .panel-actions{padding:16px}[data-minas-plugin="sshrecovery"] .panel{padding:0}[data-minas-plugin="sshrecovery"] .panel-head{gap:8px}[data-minas-plugin="sshrecovery"] .shell{padding-inline:14px}[data-minas-plugin="sshrecovery"] .panel-actions button{flex:1 1 140px}}
