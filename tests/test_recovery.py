@@ -258,10 +258,15 @@ class PackagingTests(unittest.TestCase):
             self.assertEqual(response['module'],'sshrecovery')
         self.assertEqual(response['helperVersion'],'1.0.6')
     def test_boot_code_is_original(self):
-        if not (ROOT.parent/'install-ssh-autostart-fix.sh').exists():self.skipTest('Original worker project unavailable')
-        original=(ROOT.parent/'install-ssh-autostart-fix.sh').read_text()
-        worker=original.split("<<'SSH_RESTORE_WORKER'\n")[1].split('\nSSH_RESTORE_WORKER')[0]
-        self.assertEqual((ROOT/'payload/system/restore-ssh.sh').read_text().strip(),worker.strip())
+        project=ROOT.parent/'nas-root'
+        if not project.exists():self.skipTest('Sibling SSH tool project unavailable')
+        expected=(ROOT/'payload/system/restore-ssh.sh').read_text().strip()
+        self.assertEqual((project/'restore-ssh.sh').read_text().strip(),expected)
+        for name in ('xiaomi-storage-open-ssh-wsl.sh','install-ssh-autostart-fix.sh'):
+            original=(project/name).read_text()
+            worker=original.split("<<'MINAS_SSH_REPAIR_SH_SOURCE'\n")[1].split('\nMINAS_SSH_REPAIR_SH_SOURCE')[0]
+            self.assertEqual(worker.strip(),expected)
+        self.assertNotIn('python',expected.lower())
     def test_common_copies_match(self):
         for name in ('minas-helper','component_admin.py','privileged_runtime.py','docker-manager-helper','user_state_io.py'):
             expected=(ROOT/'payload/common'/name).read_bytes().replace(b'\r\n',b'\n')
