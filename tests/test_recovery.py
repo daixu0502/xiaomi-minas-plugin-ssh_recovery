@@ -256,7 +256,7 @@ class PackagingTests(unittest.TestCase):
             load.assert_not_called()
             response=dispatcher.dispatch('sshrecovery',{'pluginUser':'u123','action':'capabilities'},'u123')
             self.assertEqual(response['module'],'sshrecovery')
-            self.assertEqual(response['helperVersion'],'1.0.5')
+        self.assertEqual(response['helperVersion'],'1.0.6')
     def test_boot_code_is_original(self):
         if not (ROOT.parent/'install-ssh-autostart-fix.sh').exists():self.skipTest('Original worker project unavailable')
         original=(ROOT.parent/'install-ssh-autostart-fix.sh').read_text()

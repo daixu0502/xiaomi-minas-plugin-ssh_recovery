@@ -256,9 +256,9 @@ class Recovery:
     def emergency_bundle(self):
         memory=io.BytesIO();files={'recover-ssh.py':Path(__file__).read_bytes(),
                                  'restore-ssh.sh':(BASE/'ssh-recovery-boot.sh').read_bytes(),
-                                 'manifest.json':json.dumps({'version':'1.1.5','user':self.user}).encode()}
+                                 'manifest.json':json.dumps({'version':'1.1.6','user':self.user}).encode()}
         if self.key.exists():files['recovery.pub']=(public_key(self.key.read_text())[0]+'\n').encode()
-        files['README.txt']=('SSH 应急包 1.1.5\n仅包含恢复程序、可选登录公钥，不包含私钥或 NAS 主机密钥。\n'
+        files['README.txt']=('SSH 应急包 1.1.6\n仅包含恢复程序、可选登录公钥，不包含私钥或 NAS 主机密钥。\n'
             '请提前下载到电脑并保留 Portainer 管理入口。\n'
             'SSH 与插件都无法使用时，将本包解压到 NAS 用户共享文件夹 data/ssh-emergency。\n'
             '在容器里将 NAS 的 / 绑定到 /nas，使用 root Console 执行：\n'
@@ -391,7 +391,7 @@ class Recovery:
         if self.host_key.is_file():
             try:host_valid=bool(command(['/usr/sbin/dropbearkey','-y','-f',str(self.host_key)],timeout=5))
             except (RecoveryError,OSError,subprocess.TimeoutExpired):pass
-        return dict(version='1.1.5',loginAuthorization=self.login_status(),hostKeyValid=host_valid,sshActive=socket.get('ActiveState')=='active',socketSupported=socket.get('LoadState')!='not-found',port=22,
+        return dict(version='1.1.6',loginAuthorization=self.login_status(),hostKeyValid=host_valid,sshActive=socket.get('ActiveState')=='active',socketSupported=socket.get('LoadState')!='not-found',port=22,
                     bootFinished=boot,keySaved=bool(fingerprint),fingerprint=fingerprint,hostKey=self.host_key.is_file(),hostBackup=self.host_backup.is_file(),
                     bootService=dict(worker=WORKER.is_file(),cron=CRON.is_file(),dropin=DROPIN.is_file()),
                     events=[e for e in reversed(events) if e.get('user')==self.user][:20],settings=self.settings(),generated=self.generated_info())
