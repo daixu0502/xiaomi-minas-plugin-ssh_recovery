@@ -1,0 +1,7 @@
+.test-cache/
+__pycache__/
+*.py[cod]
+.cache/
+*.key
+*.pem
+*.pub

@@ -1,0 +1,3 @@
+#!/bin/sh
+# Manual recovery plugin: enabling/disabling the UI never changes the SSH server.
+exit 0

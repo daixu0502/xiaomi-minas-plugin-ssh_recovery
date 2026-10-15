@@ -1,0 +1,1 @@
+{"title":"SSH 恢复","desc":"手动开启 SSH、恢复主机密钥与登录公钥","icon":"/sshrecovery.icon","type":"url","permission":["admin"],"dev_type":[1,2,3,4],"url":[{"dev_type":[1,2,3,4],"url":"/index.html"}],"sortid":28,"widget":[]}
