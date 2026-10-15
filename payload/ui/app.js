@@ -46,7 +46,7 @@ async function perform(action,data={}){
 }
 function confirmAction(title,text,overwrite=false){
  return new Promise(resolve=>{const d=byId('confirm');byId('confirmTitle').textContent=title;byId('confirmText').textContent=text;byId('overwriteRow').hidden=!overwrite;byId('overwrite').checked=false;d.returnValue='';
- d.addEventListener('close',()=>resolve({ok:d.returnValue==='ok',overwrite:byId('overwrite').checked}),{once:true});d.showModal();});
+ d.addEventListener('close',()=>resolve({ok:d.returnValue==='ok',overwrite:byId('overwrite').checked}),{once:true});window.XiaomiPluginClient.openDialog(d);});
 }
 byId('refresh').onclick=()=>perform('status');
 byId('recover').onclick=async()=>{

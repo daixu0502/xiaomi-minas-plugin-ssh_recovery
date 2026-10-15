@@ -12,7 +12,7 @@ const profiles=[
  try{for(const p of profiles){
   const context=await browser.newContext({viewport:{width:p.width,height:p.height},isMobile:!!p.mobile,hasTouch:!!p.mobile,colorScheme:p.dark?'dark':'light',userAgent:p.desktop?'SmartStorage Electron/30':p.name.startsWith('ios')?'Mozilla/5.0 iPhone Mobile Safari':'Mozilla/5.0 Android Mobile Chrome',acceptDownloads:true});
   const page=await context.newPage(),errors=[],calls=[];
-  let s={ok:true,version:'1.1.2',helperVersion:'1.0.4',sshActive:true,socketSupported:true,port:22,hostKey:true,hostBackup:true,keySaved:false,fingerprint:'',bootFinished:true,bootService:{worker:true,cron:true,dropin:true},events:[],settings:{generateWithoutPublicKey:false},generated:{ready:false}};
+  let s={ok:true,version:'1.1.3',helperVersion:'1.0.4',sshActive:true,socketSupported:true,port:22,hostKey:true,hostBackup:true,keySaved:false,fingerprint:'',bootFinished:true,bootService:{worker:true,cron:true,dropin:true},events:[],settings:{generateWithoutPublicKey:false},generated:{ready:false}};
   s.hostKeyValid=true;s.loginAuthorization={rootHome:'/home/rootx',homeExists:false,ready:false,reason:'home_missing'};
   if(p.desktop)await page.addInitScript(()=>{window.__MICRO_APP_ENVIRONMENT__=true;let listener;window.microApp={addDataListener(cb){listener=cb;},removeDataListener(){},dispatch(){setTimeout(()=>listener({cmd:'getDeviceInfo',data:{cgiPort:1234,cgiToken:'local-test-token'}}),0);}};});
   page.on('pageerror',e=>errors.push(e.message));
@@ -35,7 +35,7 @@ const profiles=[
   });
   await page.goto('http://ssh-ui.test/plugin/123/sshrecovery/index.html');
   await page.waitForFunction(()=>document.querySelector('#sshState').textContent==='已开启');
-  assert(await page.locator('#error').isHidden());assert.equal(await page.locator('footer').textContent(),'插件版本 1.1.2 · 公共权限组件 1.0.4');
+  assert(await page.locator('#error').isHidden());assert.equal(await page.locator('footer').textContent(),'插件版本 1.1.3 · 公共权限组件 1.0.4');
   assert.equal(await page.locator('#hostState').textContent(),'可用');
   assert.equal(await page.locator('#authorizationState').textContent(),'目录缺失');
   const emergencyDownload=page.waitForEvent('download');await page.locator('#downloadEmergency').click();
