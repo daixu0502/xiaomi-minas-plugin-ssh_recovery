@@ -1,5 +1,11 @@
 # 小米智能存储 SSH 恢复
 
+详细目录、保留例外和部署流程见 [缓存与安装目录](docs/runtime-layout.md)。
+
+## 1.1.11 目录与部署整理
+
+当前版本 **1.1.11**。可重建缓存、普通日志和运行状态使用官方 `tmp/`（链接 `plugintmp/sshrecovery/`）；配置、任务、内核和受保护的权限/SSH 材料保留原持久位置。安装包仅保留必要运行资源，测试仅保留本地。升级不删除用户数据。
+
 ## 1.1.10 公共权限组件
 
 当前版本 **1.1.10**。使用公共权限组件 **1.1.1 / API v1**；安装包只含共有部分和自身私有模块，底部动态显示实际组件版本。仅升级较旧的共有组件，不降级、不覆盖其他插件模块。SSH 恢复数据由所属模块迁至 `modules/sshrecovery/var/`。目录布局、授权和兼容策略见 [公共权限组件](docs/privileged-component.md)。
@@ -80,7 +86,7 @@ WSL / Linux 自动使用 root SSH 远程安装；NAS 本机直接执行。首次
 manage.sh                 统一安装／卸载入口
 payload/install.py        标准插件注册与权限模块安装
 payload/common/           可独立安装的公共组件
-payload/system/           受限 SSH 模块与开机 worker
+payload/common/modules/sshrecovery/  受限 SSH 模块与开机 worker（唯一维护位置）
 payload/ui/               客户端界面、CGI、主题与桥接
 payload/scripts/control   不改变 SSH 的插件生命周期控制
 tests/                    密钥、授权、恢复与源码摘要回归

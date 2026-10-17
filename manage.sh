@@ -4,7 +4,7 @@ set -Eeuo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PLUGIN_NAME='sshrecovery'
 PLUGIN_LABEL='SSH 恢复'
-PLUGIN_VERSION='1.1.10'
+PLUGIN_VERSION='1.1.11'
 UNINSTALL_NOTE='仅删除所选用户的插件及恢复材料；不关闭 SSH，不移除已安装的登录公钥。'
 
 # Shared frontend; keep this section consistent across the four manage.sh files.
@@ -210,6 +210,7 @@ installer_main() {
     else installer_emit_uninstall > "$WORK_DIR/bundle/remote-uninstall.sh"; fi
     if [[ $ACTION == install ]]; then
         [[ -d $SCRIPT_DIR/payload ]] || installer_error "安装包缺少 payload 目录。"
+        [[ ! -e $SCRIPT_DIR/payload/system ]] || installer_error "检测到旧版重复资源目录 payload/system，请先整理源码。"
         cp -R "$SCRIPT_DIR/payload" "$WORK_DIR/bundle/payload"
         if declare -F installer_prepare_payload >/dev/null; then installer_prepare_payload "$WORK_DIR/bundle"; fi
     fi
