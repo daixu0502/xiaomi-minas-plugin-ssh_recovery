@@ -281,8 +281,8 @@ class RecoveryTests(unittest.TestCase):
 class PackagingTests(unittest.TestCase):
     def test_shared_dispatch_requires_separate_grant_and_matching_user(self):
         import sys
-        common=ROOT/'payload/common';sys.path.insert(0,str(common))
-        self.addCleanup(lambda:sys.path.remove(str(common)))
+        common=ROOT/'payload/common';sys.path.insert(0,str(common/'common'))
+        self.addCleanup(lambda:sys.path.remove(str(common/'common')))
         dispatcher_loader=importlib.machinery.SourceFileLoader('ssh_test_dispatcher',str(common/'minas-helper'))
         dispatcher_spec=importlib.util.spec_from_loader(dispatcher_loader.name,dispatcher_loader)
         dispatcher=importlib.util.module_from_spec(dispatcher_spec);dispatcher_loader.exec_module(dispatcher)
@@ -294,7 +294,7 @@ class PackagingTests(unittest.TestCase):
             load.assert_not_called()
             response=dispatcher.dispatch('sshrecovery',{'pluginUser':'u123','action':'capabilities'},'u123')
             self.assertEqual(response['module'],'sshrecovery')
-        self.assertEqual(response['helperVersion'],'1.0.6')
+        self.assertEqual(response['helperVersion'],'1.1.0')
     def test_boot_code_is_original(self):
         project=ROOT.parent/'nas-root'
         if not project.exists():self.skipTest('Sibling SSH tool project unavailable')
@@ -306,7 +306,7 @@ class PackagingTests(unittest.TestCase):
             self.assertEqual(worker.strip(),expected)
         self.assertNotIn('python',expected.lower())
     def test_common_copies_match(self):
-        for name in ('minas-helper','component_admin.py','privileged_runtime.py','docker-manager-helper','user_state_io.py'):
+        for name in ('minas-helper','component_admin.py','common/privileged_runtime.py','common/component_admin.py','common/user_state_io.py','common/telemetry_cache.py'):
             expected=(ROOT/'payload/common'/name).read_bytes().replace(b'\r\n',b'\n')
             for plugin in ('docker-manager-plugin','task-center-plugin'):
                 if not (ROOT.parent/plugin).exists():self.skipTest('Sibling installer project unavailable')

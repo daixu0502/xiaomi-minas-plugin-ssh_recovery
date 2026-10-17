@@ -39,9 +39,15 @@ class RecoveryError(Exception):
     pass
 
 
+def boot_asset():
+    # Keep offline/standalone recovery usable even without an installed plugin.
+    for path in (BASE/'modules/sshrecovery/restore-ssh.sh', Path(__file__).with_name('restore-ssh.sh'), BASE/'ssh-recovery-boot.sh', WORKER):
+        if path.is_file(): return path
+    raise RecoveryError('SSH 开机修复脚本缺失')
+
 def boot_data():
     # The shell worker has no dependency on the optional Python emergency CLI.
-    return {WORKER:(BASE/'ssh-recovery-boot.sh').read_bytes(),
+    return {WORKER:boot_asset().read_bytes(),
             DROPIN:b'[Service]\n# Restore SSH after the Xiaomi boot check when this drop-in is loaded.\nExecStartPost=/usr/bin/systemctl start dropbear.socket\n',
             CRON:b'SHELL=/bin/sh\nPATH=/usr/sbin:/usr/bin:/sbin:/bin\nMAILTO=""\n\n# Wait for the real boot-check completion, then perform bounded SSH rechecks.\n@reboot root /bin/sh /data/ssh-autostart-fix/restore-ssh.sh\n'}
 
@@ -282,10 +288,10 @@ class Recovery:
 
     def emergency_bundle(self):
         memory=io.BytesIO();files={'recover-ssh.py':Path(__file__).read_bytes(),
-                                 'restore-ssh.sh':(BASE/'ssh-recovery-boot.sh').read_bytes(),
-                                 'manifest.json':json.dumps({'version':'1.1.8','user':self.user}).encode()}
+                                 'restore-ssh.sh':boot_asset().read_bytes(),
+                                 'manifest.json':json.dumps({'version':'1.1.9','user':self.user}).encode()}
         if self.key.exists():files['recovery.pub']=(public_key(self.key.read_text())[0]+'\n').encode()
-        files['README.txt']=('SSH 应急包 1.1.8\n仅包含恢复程序、可选登录公钥，不包含私钥或 NAS 主机密钥。\n'
+        files['README.txt']=('SSH 应急包 1.1.9\n仅包含恢复程序、可选登录公钥，不包含私钥或 NAS 主机密钥。\n'
             '请提前下载到电脑并保留 Portainer 管理入口。\n'
             'SSH 与插件都无法使用时，将本包解压到 NAS 用户共享文件夹 data/ssh-emergency。\n'
             '在容器里将 NAS 的 / 绑定到 /nas，使用 root Console 执行：\n'
@@ -418,7 +424,7 @@ class Recovery:
         if self.host_key.is_file():
             try:host_valid=bool(command(['/usr/sbin/dropbearkey','-y','-f',str(self.host_key)],timeout=5))
             except (RecoveryError,OSError,subprocess.TimeoutExpired):pass
-        return dict(version='1.1.8',loginAuthorization=self.login_status(),hostKeyValid=host_valid,sshActive=socket.get('ActiveState')=='active',socketSupported=socket.get('LoadState')!='not-found',port=22,
+        return dict(version='1.1.9',loginAuthorization=self.login_status(),hostKeyValid=host_valid,sshActive=socket.get('ActiveState')=='active',socketSupported=socket.get('LoadState')!='not-found',port=22,
                     bootFinished=boot,keySaved=bool(fingerprint),fingerprint=fingerprint,hostKey=self.host_key.is_file(),hostBackup=self.host_backup.is_file(),
                     bootService=boot_status(),
                     events=[e for e in reversed(events) if e.get('user')==self.user][:20],settings=self.settings(),generated=self.generated_info())
@@ -446,7 +452,7 @@ class Recovery:
 
     def install_boot(self,overwrite=False):
         require(unit_state(BOOT).get('LoadState')!='not-found' and unit_state(SOCKET).get('LoadState')!='not-found','设备缺少受支持的开机检查或 SSH 单元')
-        asset=BASE/'ssh-recovery-boot.sh';safe(asset)
+        asset=boot_asset();safe(asset)
         data=boot_data()
         for target,value in data.items():
             safe(target)
@@ -584,7 +590,7 @@ def root_command(args):
     result=activate_pending();require(result['ok'],result.get('error','SSH 激活失败'))
     if args.install_boot:
         asset=adjacent/'restore-ssh.sh';require(asset.is_file(),'缺少 restore-ssh.sh')
-        atomic(BASE/'ssh-recovery-boot.sh',asset.read_bytes(),0o755);recovery.install_boot(True)
+        atomic(boot_asset(),asset.read_bytes(),0o755);recovery.install_boot(True)
     print(json.dumps(result,ensure_ascii=False))
 
 
