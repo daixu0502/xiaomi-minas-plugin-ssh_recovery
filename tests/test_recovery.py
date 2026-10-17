@@ -294,7 +294,7 @@ class PackagingTests(unittest.TestCase):
             load.assert_not_called()
             response=dispatcher.dispatch('sshrecovery',{'pluginUser':'u123','action':'capabilities'},'u123')
             self.assertEqual(response['module'],'sshrecovery')
-        self.assertEqual(response['helperVersion'],'1.1.0')
+        self.assertEqual(response['helperVersion'],'1.1.1')
     def test_boot_code_is_original(self):
         project=ROOT.parent/'nas-root'
         if not project.exists():self.skipTest('Sibling SSH tool project unavailable')
@@ -315,7 +315,7 @@ class PackagingTests(unittest.TestCase):
         self.assertFalse(list((ROOT/'payload').rglob('id_ed25519*')))
         cgi=(ROOT/'payload/ui/sshrecovery.cgi').read_text();self.assertIn('sys.dont_write_bytecode=True',cgi)
         helper=(ROOT/'payload/system/ssh-recovery-helper').read_text()
-        self.assertIn("STATE = BASE/'sshrecovery'",helper)
+        self.assertIn("STATE = BASE/'modules/sshrecovery/var'",helper)
         self.assertNotIn('path.write_text(text)',helper)
 
 if __name__=='__main__':unittest.main()
